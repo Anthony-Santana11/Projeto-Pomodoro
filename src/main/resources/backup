@@ -1,0 +1,280 @@
+package com.anthony.pomodoro.timer;
+
+public class PomodoroTimer {
+    private int duracao;
+    private int intervalo;
+    private volatile boolean pausado;
+    private long tempoRestante;
+    private long inicio;
+
+
+    public PomodoroTimer(int duracao, int intervalo) {
+        this.duracao = duracao;
+        this.intervalo = intervalo;
+        this.pausado = false;
+        this.tempoRestante = duracao * 60;
+    }
+
+    public int getDuracao() {
+        return duracao;
+    }
+
+    public void setDuracao(int duracao) {
+        this.duracao = duracao;
+    }
+
+    public int getIntervalo() {
+        return intervalo;
+    }
+
+    public void setIntervalo(int intervalo) {
+        this.intervalo = intervalo;
+    }
+
+    public void iniciarPomodoro() {
+
+        if (duracao == 50) {
+            intervalo = 10;
+        } else if (duracao == 25) {
+            intervalo = 5;
+        } else {
+            System.out.println("Duração inválida. O pomodoro não pode ser iniciado.");
+            return;
+        }
+        System.out.println("Pomodoro iniciado! Duração: " + duracao + " minutos." + " Intervalo: " + intervalo + " minutos.");
+        long inicio = System.currentTimeMillis();
+
+        while (tempoRestante > 0) {
+            if (pausado) {
+                System.out.println("Pomodoro pausado.");
+                break;
+            }
+
+            long tempoAtual = System.currentTimeMillis();
+            tempoRestante -= (tempoAtual - inicio) / 1000; // Atualiza o tempo restante diretamente
+
+            if (tempoRestante <= 0) {
+                System.out.println("Pomodoro concluído! Hora do intervalo.");
+                iniciarIntervalo();
+                break;
+            }
+
+            try {
+                Thread.sleep(1000);
+                inicio = System.currentTimeMillis(); // Atualiza o início após cada ciclo
+            } catch (InterruptedException e) {
+                if (pausado) {
+                    System.out.println("Pomodoro interrompido devido à pausa.");
+                    break;
+                }
+                System.err.println("O temporizador foi interrompido: " + e.getMessage());
+                return;
+            }
+        }
+        if (tempoRestante <= 0) {
+            System.out.println("Pomodoro concluído! Hora do intervalo.");
+            pausado = false;
+            iniciarIntervalo();
+        }
+
+    }
+
+    public void pausarPomodoro() {
+
+            if (pausado) {
+                System.out.println("O Pomodoro já está pausado.");
+                return;
+            }
+                System.out.println("Pomodoro pausado.");
+                pausado = true;
+        }
+
+    public void reiniciarPomodoro() {
+        tempoRestante = duracao * 60;
+        pausado = false;
+        System.out.println("Pomodoro reiniciado.");
+    }
+
+    public void pararPomodoro() {
+        tempoRestante = 0;
+        pausado = true;
+        System.out.println("Pomodoro parado.");
+    }
+
+    public void iniciarIntervalo() {
+        long inicio = System.currentTimeMillis();
+        long tempoRestanteIntervalo = intervalo * 60;
+        System.out.println("Intervalo iniciado Duração: " + intervalo + " minutos.");
+
+        while (tempoRestanteIntervalo > 0 && !pausado) {
+            long tempoAtual = System.currentTimeMillis();
+            long tempoDecorrido = (tempoAtual - inicio) / 1000; // em segundos
+            tempoRestanteIntervalo = intervalo * 60 - tempoDecorrido;
+
+            if (tempoRestanteIntervalo <= 0) {
+                System.out.println("Intervalo concluído Hora de voltar ao trabalho.");
+                break;
+            }
+
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                System.err.println("O temporizador foi interrompido: " + e.getMessage());
+                return;
+            }
+        }
+    }
+    }
+
+---------------------------------------------------------------------
+package com.anthony.pomodoro.user;
+
+import com.anthony.pomodoro.database.DataBaseConnections;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
+
+public class UserDAO {
+    private Connection conexao;
+
+    public void inicializarConexao () {
+        if (this.conexao == null) {
+            this.conexao = DataBaseConnections.getConexao();
+        }
+    }
+
+
+
+    public void inserirUsuario (String nome) {
+        String sql = "INSERT INTO users (nome) VALUES (?)";
+        try {
+
+            inicializarConexao();
+            var statement = conexao.prepareStatement(sql);
+            statement.setString(1, nome);
+            statement.executeUpdate();
+            System.out.println("Dados inseridos com sucesso!");
+
+        } catch (Exception e) {
+            System.err.println("Erro ao inserir dados: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void atualizarNome (int id, String nome) {
+        String sql = "UPDATE users SET nome = ? WHERE id = ?";
+        try {
+
+            inicializarConexao();
+            var statement = conexao.prepareStatement(sql);
+            statement.setString(1, nome);
+            statement.setInt(2, id);
+            statement.executeUpdate();
+            System.out.println("Dados atualizados com sucesso!");
+
+        } catch (Exception e) {
+            System.err.println("Erro ao atualizar dados: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void deletarUsuario (int id) {
+        String sql = "DELETE FROM users WHERE id = ?";
+        try {
+
+            inicializarConexao();
+            var statement = conexao.prepareStatement(sql);
+            statement.setInt(1, id);
+            statement.executeUpdate();
+            System.out.println("Dados deletados com sucesso!");
+
+        } catch (Exception e) {
+            System.err.println("Erro ao deletar dados: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    public User buscarUsuarioPorNome(String nome) {
+        String sql = "SELECT * FROM users WHERE nome = ?";
+        try {
+            inicializarConexao();
+            PreparedStatement statement = conexao.prepareStatement(sql);
+            statement.setString(1, nome);
+            ResultSet resultSet = statement.executeQuery();
+
+            if (resultSet.next()) {
+                return new User(resultSet.getString("nome"));
+            }
+        } catch (Exception e) {
+            System.err.println("Erro ao buscar usuário: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public List<User> listarUsuarios() {
+        String sql = "SELECT * FROM users";
+        List<User> usuarios = new ArrayList<>();
+
+        try (Connection conexao = DataBaseConnections.getConexao();
+             var statement = conexao.prepareStatement(sql);
+             var resultSet = statement.executeQuery()) {
+
+            while (resultSet.next()) {
+                // Obtém o nome diretamente do ResultSet
+                String nome = resultSet.getString("nome");
+                User usuario = new User(nome);
+                usuarios.add(usuario);
+            }
+
+            System.out.println("Dados listados com sucesso!");
+
+        } catch (Exception e) {
+            System.err.println("Erro ao listar dados: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+
+        return usuarios;
+    }
+
+    public List<User> listarUsuariosID () {
+
+            String sql = "SELECT id FROM users";
+            List<User> usuarios = new ArrayList<>();
+
+            try (Connection conexao = DataBaseConnections.getConexao();
+                 var statement = conexao.prepareStatement(sql);
+                 var resultSet = statement.executeQuery()) {
+
+                while (resultSet.next()) {
+                    User usuario = new User(resultSet.getString("nome"));
+                    usuarios.add(usuario);
+                }
+
+                System.out.println("IDs listados com sucesso!");
+
+            } catch (Exception e) {
+                System.err.println("Erro ao listar IDs: " + e.getMessage());
+                throw new RuntimeException(e);
+            }
+
+            return usuarios;
+    }
+    public class CadastroUsuario {
+        public void cadastrarUsuario(String nome) {
+            if (nome == null || nome.trim().isEmpty()) {
+                System.out.println("Nome inválido. O cadastro não pode ser realizado.");
+                return;
+            }
+
+            try {
+                inserirUsuario(nome);
+                System.out.println("Usuário cadastrado com sucesso!");
+            } catch (Exception e) {
+                System.err.println("Erro ao cadastrar usuário: " + e.getMessage());
+            }
+        }
+    }
+}
